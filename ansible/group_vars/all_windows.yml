@@ -1,18 +1,12 @@
-# group_vars/all_windows.yml
-# Applied to all Windows hosts
-
-ansible_user: Administrator
-ansible_password: "BootstrapPass123!"   # Change to match what you set in windows_init.ps1
+ansible_user: cyberrange
+ansible_password: "Cyberrange123!"
 ansible_connection: winrm
 ansible_winrm_transport: basic
 ansible_winrm_port: 5985
 ansible_winrm_scheme: http
 ansible_winrm_server_cert_validation: ignore
 
-# Domain info
 ad_domain: "scp.local"
 ad_domain_netbios: "SCP"
 ad_domain_controller_ip: "10.10.10.21"
-
-# Safe mode / DS restore password for DC promotion
 ad_safe_mode_password: "SafeMode!Restore99"
