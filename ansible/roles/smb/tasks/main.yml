@@ -4,7 +4,7 @@
 
 # ── Join domain first
 - name: Join domain
-  win_domain_membership:
+  microsoft.ad.membership:
     dns_domain_name: "{{ ad_domain }}"
     domain_admin_user: "{{ ad_domain_netbios }}\\sjohnson"
     domain_admin_password: "UwU?OwO!67"
@@ -64,7 +64,7 @@
     dest: C:\Shares\Confidential\IT-Temp-Creds.txt
 
 - name: Create SMB shares
-  community.windows.win_share:
+  ansible.windows.win_share:
     name: "{{ item.name }}"
     path: "{{ item.path }}"
     full: "Everyone"

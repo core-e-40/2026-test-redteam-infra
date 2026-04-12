@@ -16,7 +16,7 @@
 
 # ── 2. Promote to Domain Controller
 - name: Promote server to Domain Controller
-  win_domain:
+  microsoft.ad.domain:
     dns_domain_name: "{{ ad_domain }}"
     domain_netbios_name: "{{ ad_domain_netbios }}"
     safe_mode_password: "{{ ad_safe_mode_password }}"
@@ -230,7 +230,7 @@
 
 # ── 9. DNS — add A records for all hosts
 - name: Add DNS A records for all target machines
-  community.windows.win_dns_record:
+  ansible.windows.win_dns_record:
     name: "{{ item.name }}"
     type: A
     value: "{{ item.ip }}"

@@ -107,8 +107,3 @@
     state: present
   when: ansible_os_family == "RedHat"
 
-handlers:
-  - name: Restart sshd
-    service:
-      name: sshd
-      state: restarted

@@ -102,7 +102,7 @@ resource "openstack_compute_instance_v2" "target_windows" {
   name            = each.key
   flavor_name     = each.value.flavor
   image_name      = each.value.image
-  key_pair        = openstack_compute_keypair_v2.scp_key.name
+  key_pair        = "scp-lab-key-new"
   security_groups = [openstack_networking_secgroup_v2.target_sg.name]
 
   network {
@@ -126,7 +126,7 @@ resource "openstack_compute_instance_v2" "target_linux" {
   name            = each.key
   flavor_name     = each.value.flavor
   image_name      = each.value.image
-  key_pair        = openstack_compute_keypair_v2.scp_key.name
+  key_pair        = "scp-lab-key-new"
   security_groups = [openstack_networking_secgroup_v2.target_sg.name]
 
   network {
@@ -146,7 +146,7 @@ resource "openstack_compute_instance_v2" "bt_windows" {
   name            = each.key
   flavor_name     = each.value.flavor
   image_name      = each.value.image
-  key_pair        = openstack_compute_keypair_v2.scp_key.name
+  key_pair        = "scp-lab-key-new"
   security_groups = [openstack_networking_secgroup_v2.target_sg.name]
 
   network {
@@ -170,7 +170,7 @@ resource "openstack_compute_instance_v2" "bt_linux" {
   name            = each.key
   flavor_name     = each.value.flavor
   image_name      = each.value.image
-  key_pair        = openstack_compute_keypair_v2.scp_key.name
+  key_pair        = "scp-lab-key-new"
   security_groups = [openstack_networking_secgroup_v2.target_sg.name]
 
   network {
@@ -190,7 +190,7 @@ resource "openstack_compute_instance_v2" "red_machines" {
   name            = each.key
   flavor_name     = each.value.flavor
   image_name      = each.value.image
-  key_pair        = openstack_compute_keypair_v2.scp_key.name
+  key_pair        = "scp-lab-key-new"
   security_groups = [openstack_networking_secgroup_v2.red_sg.name]
 
   network {

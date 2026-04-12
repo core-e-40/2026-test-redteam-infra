@@ -97,8 +97,3 @@
     jump: ACCEPT
     state: present
 
-handlers:
-  - name: Restart MySQL
-    service:
-      name: mysql
-      state: restarted

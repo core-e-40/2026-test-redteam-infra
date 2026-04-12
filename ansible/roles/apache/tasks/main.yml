@@ -139,8 +139,3 @@
     create_home: true
   no_log: true
 
-handlers:
-  - name: Reload Apache
-    service:
-      name: apache2
-      state: reloaded
