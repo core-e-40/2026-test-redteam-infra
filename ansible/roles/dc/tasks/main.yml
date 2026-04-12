@@ -39,39 +39,39 @@
 
 # ── 4. Create Organizational Units
 - name: Create Competition OU
-  community.windows.win_domain_ou:
+  microsoft.ad.ou:
     name: "SCP Foundation"
     path: "DC=scp,DC=local"
     state: present
 
 - name: Create Staff OU
-  community.windows.win_domain_ou:
+  microsoft.ad.ou:
     name: "Staff"
     path: "OU=SCP Foundation,DC=scp,DC=local"
     state: present
 
 - name: Create Admins OU
-  community.windows.win_domain_ou:
+  microsoft.ad.ou:
     name: "Domain Admins"
     path: "OU=SCP Foundation,DC=scp,DC=local"
     state: present
 
 - name: Create Service Accounts OU
-  community.windows.win_domain_ou:
+  microsoft.ad.ou:
     name: "Service Accounts"
     path: "OU=SCP Foundation,DC=scp,DC=local"
     state: present
 
 # ── 5. Create competition AD groups
 - name: Create Staff group
-  community.windows.win_domain_group:
+  microsoft.ad.group:
     name: "SCP-Staff"
     scope: global
     path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
     state: present
 
 - name: Create Domain Admins competition group
-  community.windows.win_domain_group:
+  microsoft.ad.group:
     name: "SCP-Admins"
     scope: global
     path: "OU=Domain Admins,OU=SCP Foundation,DC=scp,DC=local"
@@ -81,7 +81,7 @@
 #       Username format: first initial + last name (e.g. dlee, ecarter)
 
 - name: Create AD user - Michael Anderson (manderson)
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: manderson
     firstname: Michael
     surname: Anderson
@@ -94,7 +94,7 @@
     description: "Retired - Department of Mythology"
 
 - name: Create AD user - Emily Carter (ecarter)
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: ecarter
     firstname: Emily
     surname: Carter
@@ -107,7 +107,7 @@
     description: "Retired - Department of Temporal Anomalies"
 
 - name: Create AD user - David Lee (dlee)
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: dlee
     firstname: David
     surname: Lee
@@ -120,7 +120,7 @@
     description: "Retired - Department of Ethics"
 
 - name: Create AD user - Sarah Johnson (sjohnson) — Domain Admin
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: sjohnson
     firstname: Sarah
     surname: Johnson
@@ -137,7 +137,7 @@
 #       These are NOT listed in the competition brief — red team must find them
 
 - name: Create hidden user - Robert Sinclair (rsinclair) [standard]
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: rsinclair
     firstname: Robert
     surname: Sinclair
@@ -150,7 +150,7 @@
     description: "Archivist - Records Division"
 
 - name: Create hidden user - Natasha Voss (nvoss) [standard]
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: nvoss
     firstname: Natasha
     surname: Voss
@@ -163,7 +163,7 @@
     description: "Field Agent - Site-19"
 
 - name: Create hidden user - James Holloway (jholloway) [standard]
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: jholloway
     firstname: James
     surname: Holloway
@@ -176,7 +176,7 @@
     description: "Researcher - Anomalous Materials"
 
 - name: Create hidden admin - Victor Crane (vcrane) [Domain Admin]
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: vcrane
     firstname: Victor
     surname: Crane
@@ -190,7 +190,7 @@
     description: "O5 Council - Clearance 5"
 
 - name: Create hidden admin - Priya Mehta (pmehta) [Domain Admin]
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: pmehta
     firstname: Priya
     surname: Mehta
@@ -205,7 +205,7 @@
 
 # ── 8. Service account for scoring (SSH key auth — grey team)
 - name: Create scoring service account SCP073
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: scp073
     firstname: SCP
     surname: "073"
@@ -216,7 +216,7 @@
     description: "Scoring account - non-privileged"
 
 - name: Create scoring service account SCP343
-  community.windows.win_domain_user:
+  microsoft.ad.user:
     name: scp343
     firstname: SCP
     surname: "343"
