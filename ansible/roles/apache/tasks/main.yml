@@ -1,0 +1,146 @@
+---
+# roles/apache/tasks/main.yml
+# SCP-APACHE-01 — Debian 13, Apache2, connects to DATABASE-01
+
+- name: Install Apache2 and PHP
+  apt:
+    name:
+      - apache2
+      - php
+      - php-mysql
+      - php-curl
+      - libapache2-mod-php
+    state: present
+    update_cache: true
+
+- name: Enable Apache modules
+  community.general.apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - rewrite
+    - headers
+    - php8.2   # adjust to actual PHP version on Debian 13
+
+- name: Deploy SCP Foundation web app virtual host config
+  copy:
+    dest: /etc/apache2/sites-available/scp-foundation.conf
+    content: |
+      <VirtualHost *:80>
+          ServerName scp.local
+          ServerAlias www.scp.local
+          DocumentRoot /var/www/scpweb
+          
+          <Directory /var/www/scpweb>
+              AllowOverride All
+              Require all granted
+          </Directory>
+          
+          ErrorLog ${APACHE_LOG_DIR}/scp_error.log
+          CustomLog ${APACHE_LOG_DIR}/scp_access.log combined
+      </VirtualHost>
+
+- name: Create web root directory
+  file:
+    path: /var/www/scpweb
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Deploy SCP web app index page
+  copy:
+    dest: /var/www/scpweb/index.php
+    content: |
+      <?php
+      // SCP Foundation Internal Portal
+      $host     = "{{ db_host }}";
+      $dbname   = "{{ db_name }}";
+      $username = "{{ db_user }}";
+      $password = "{{ db_password }}";
+      
+      try {
+          $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+          $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+          $db_status = "Connected";
+      } catch (PDOException $e) {
+          $db_status = "Connection failed: " . $e->getMessage();
+      }
+      ?>
+      <html>
+      <head><title>SCP Foundation — Internal Portal</title></head>
+      <body>
+        <h1>SCP Foundation Internal Network Portal</h1>
+        <p>Status: <?php echo $db_status; ?></p>
+        <form method="POST" action="login.php">
+          Username: <input type="text" name="username"><br>
+          Password: <input type="password" name="password"><br>
+          <input type="submit" value="Login">
+        </form>
+      </body>
+      </html>
+    owner: www-data
+    group: www-data
+
+- name: Deploy login page (intentionally vulnerable to SQLi for competition)
+  copy:
+    dest: /var/www/scpweb/login.php
+    content: |
+      <?php
+      $host     = "{{ db_host }}";
+      $dbname   = "{{ db_name }}";
+      $username = "{{ db_user }}";
+      $password = "{{ db_password }}";
+      
+      $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+      
+      // Intentionally vulnerable query (no prepared statements)
+      $user  = $_POST['username'];
+      $pass  = $_POST['password'];
+      $query = "SELECT * FROM users WHERE username='$user' AND password='$pass'";
+      
+      $stmt   = $pdo->query($query);
+      $result = $stmt->fetch();
+      
+      if ($result) {
+          echo "<h2>Welcome, " . htmlspecialchars($result['username']) . "</h2>";
+          echo "<p>Clearance Level: " . $result['clearance'] . "</p>";
+      } else {
+          echo "<p>Invalid credentials.</p>";
+          echo "<a href='index.php'>Try again</a>";
+      }
+      ?>
+    owner: www-data
+    group: www-data
+
+- name: Enable SCP site
+  command: a2ensite scp-foundation.conf
+  notify: Reload Apache
+
+- name: Disable default site
+  command: a2dissite 000-default.conf
+  notify: Reload Apache
+
+- name: Ensure Apache is running and enabled
+  service:
+    name: apache2
+    state: started
+    enabled: true
+
+# ── Extra local admin on Apache machine (target subnet)
+- name: Create hidden local admin on Apache server
+  user:
+    name: sysadmin
+    password: "{{ 'Ap@che$ite!99' | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+  no_log: true
+
+handlers:
+  - name: Reload Apache
+    service:
+      name: apache2
+      state: reloaded

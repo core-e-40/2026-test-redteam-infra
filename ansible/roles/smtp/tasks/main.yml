@@ -1,0 +1,115 @@
+---
+# roles/smtp/tasks/main.yml
+# Windows Server 2019 — Postfix SMTP (via IIS SMTP or hMailServer for Win compatibility)
+# NOTE: Postfix doesn't run natively on Windows — we use hMailServer as the
+#       Windows-native equivalent that simulates the same attack surface.
+#       If your image has WSL2 available, see the commented section below.
+
+# ── Join domain
+- name: Join domain
+  win_domain_membership:
+    dns_domain_name: "{{ ad_domain }}"
+    domain_admin_user: "{{ ad_domain_netbios }}\\sjohnson"
+    domain_admin_password: "UwU?OwO!67"
+    state: domain
+  register: smtp_domain_join
+
+- name: Reboot after domain join
+  win_reboot:
+    reboot_timeout: 300
+    post_reboot_delay: 30
+  when: smtp_domain_join.reboot_required
+
+# ── Download and install hMailServer (open-source SMTP for Windows)
+- name: Check if hMailServer is already installed
+  win_stat:
+    path: "C:\\Program Files (x86)\\hMailServer\\Bin\\hMailServer.exe"
+  register: hmail_installed
+
+- name: Download hMailServer installer
+  win_get_url:
+    url: "https://www.hmailserver.com/download/latest/hMailServer-5.6.7-B2425.exe"
+    dest: "C:\\Temp\\hmail_installer.exe"
+  when: not hmail_installed.stat.exists
+
+- name: Install hMailServer silently
+  win_command: >
+    C:\Temp\hmail_installer.exe /VERYSILENT /SUPPRESSMSGBOXES
+    /NORESTART /TYPE=server
+  when: not hmail_installed.stat.exists
+
+# ── Configure hMailServer via COM (PowerShell)
+- name: Configure hMailServer domain and accounts
+  win_shell: |
+    $app = New-Object -ComObject hMailServer.Application
+    $app.Authenticate("Administrator", "BootstrapPass123!")
+    
+    # Add SCP domain
+    $domains = $app.Domains
+    try {
+      $domain = $domains.Add()
+      $domain.Name = "scp.local"
+      $domain.Active = $true
+      $domain.Save()
+    } catch { Write-Output "Domain may already exist" }
+    
+    # Get domain
+    $domain = $domains.ItemByName("scp.local")
+    $accounts = $domain.Accounts
+    
+    # Create email accounts for AD users
+    $users = @(
+      @{name="manderson"; pass="Nuhuh!Whoisyou2"},
+      @{name="ecarter";   pass="bananaMan?#4"},
+      @{name="dlee";      pass="HushPuppy*3"},
+      @{name="sjohnson";  pass="UwU?OwO!67"},
+      @{name="rsinclair"; pass="F0undation#77"},
+      @{name="nvoss";     pass="Cont@inment!9"},
+      @{name="jholloway"; pass="Keter$ecure1"}
+    )
+    
+    foreach ($u in $users) {
+      try {
+        $acct = $accounts.Add()
+        $acct.Address = "$($u.name)@scp.local"
+        $acct.Password = $u.pass
+        $acct.Active = $true
+        $acct.MaxSize = 100
+        $acct.Save()
+        Write-Output "Created: $($u.name)@scp.local"
+      } catch {
+        Write-Output "Account $($u.name) may exist: $_"
+      }
+    }
+  ignore_errors: true
+
+# ── Firewall rules
+- name: Open SMTP port 25
+  win_firewall_rule:
+    name: "SMTP Port 25"
+    localport: 25
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true
+
+- name: Open SMTP submission port 587
+  win_firewall_rule:
+    name: "SMTP Submission 587"
+    localport: 587
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true
+
+- name: Open IMAP port 143
+  win_firewall_rule:
+    name: "IMAP 143"
+    localport: 143
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true

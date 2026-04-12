@@ -1,0 +1,136 @@
+---
+# site.yml — Master playbook
+# Run order matters: DC must be provisioned before domain joins
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.ini site.yml
+#
+# Run specific stages:
+#   ansible-playbook -i inventory/hosts.ini site.yml --tags dc
+#   ansible-playbook -i inventory/hosts.ini site.yml --tags linux
+#   ansible-playbook -i inventory/hosts.ini site.yml --tags redteam
+
+# ─────────────────────────────────────────────────────────────
+# STAGE 1 — Domain Controller (must run before any domain joins)
+# ─────────────────────────────────────────────────────────────
+- name: Provision Domain Controller
+  hosts: dc
+  gather_facts: true
+  roles:
+    - dc
+  tags:
+    - dc
+    - windows
+    - stage1
+
+# ─────────────────────────────────────────────────────────────
+# STAGE 2 — Linux service machines (independent of AD)
+# ─────────────────────────────────────────────────────────────
+- name: Common configuration for all Linux targets
+  hosts: all_linux
+  gather_facts: true
+  roles:
+    - common
+  tags:
+    - linux
+    - common
+    - stage2
+
+- name: Provision Database Server
+  hosts: database
+  gather_facts: true
+  roles:
+    - database
+  tags:
+    - database
+    - linux
+    - stage2
+
+- name: Provision Apache Web Server
+  hosts: apache
+  gather_facts: true
+  roles:
+    - apache
+  tags:
+    - apache
+    - linux
+    - stage2
+
+- name: Provision OpenSSH Server
+  hosts: openssh
+  gather_facts: true
+  roles:
+    - openssh
+  tags:
+    - openssh
+    - linux
+    - stage2
+
+- name: Provision OpenVPN Server
+  hosts: openvpn
+  gather_facts: true
+  roles:
+    - openvpn
+  tags:
+    - openvpn
+    - linux
+    - stage2
+
+# ─────────────────────────────────────────────────────────────
+# STAGE 3 — Windows servers (domain join requires DC up)
+# ─────────────────────────────────────────────────────────────
+- name: Provision SMB Server
+  hosts: smb
+  gather_facts: true
+  roles:
+    - smb
+  tags:
+    - smb
+    - windows
+    - stage3
+
+- name: Provision SMTP Server
+  hosts: smtp
+  gather_facts: true
+  roles:
+    - smtp
+  tags:
+    - smtp
+    - windows
+    - stage3
+
+# ─────────────────────────────────────────────────────────────
+# STAGE 4 — Blue team workstations
+# ─────────────────────────────────────────────────────────────
+- name: Provision Blue Team Windows Workstations
+  hosts: blueteam_windows
+  gather_facts: true
+  roles:
+    - windows-workstation
+  tags:
+    - blueteam
+    - windows
+    - stage4
+
+- name: Common config for Blue Team Linux Workstations
+  hosts: blueteam_linux
+  gather_facts: true
+  roles:
+    - common
+    - linux-workstation
+  tags:
+    - blueteam
+    - linux
+    - stage4
+
+# ─────────────────────────────────────────────────────────────
+# STAGE 5 — Red team machines
+# ─────────────────────────────────────────────────────────────
+- name: Provision Red Team Machines
+  hosts: redteam
+  gather_facts: true
+  roles:
+    - redteam
+  tags:
+    - redteam
+    - stage5

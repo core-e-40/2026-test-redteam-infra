@@ -1,0 +1,59 @@
+---
+# roles/windows-workstation/tasks/main.yml
+# Blue team Windows workstations — domain joined, no services
+
+# ── Join domain
+- name: Join domain
+  win_domain_membership:
+    dns_domain_name: "{{ ad_domain }}"
+    domain_admin_user: "{{ ad_domain_netbios }}\\sjohnson"
+    domain_admin_password: "UwU?OwO!67"
+    state: domain
+  register: bt_win_domain_join
+
+- name: Reboot after domain join
+  win_reboot:
+    reboot_timeout: 300
+    post_reboot_delay: 30
+  when: bt_win_domain_join.reboot_required
+
+# ── Disable unnecessary services (workstation profile)
+- name: Disable print spooler
+  win_service:
+    name: Spooler
+    state: stopped
+    start_mode: disabled
+
+# ── Firewall — block inbound except RDP and WinRM (for Ansible)
+- name: Enable Windows Firewall on all profiles
+  win_firewall:
+    profiles:
+      - Domain
+      - Private
+      - Public
+    state: enabled
+
+- name: Allow RDP inbound
+  win_firewall_rule:
+    name: "RDP Inbound"
+    localport: 3389
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true
+
+# ── Install basic tools on workstation
+- name: Install Chocolatey
+  win_chocolatey:
+    name: chocolatey
+    state: present
+  ignore_errors: true
+
+- name: Install basic tools via Chocolatey
+  win_chocolatey:
+    name:
+      - notepadplusplus
+      - 7zip
+    state: present
+  ignore_errors: true

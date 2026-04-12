@@ -1,0 +1,114 @@
+---
+# roles/common/tasks/main.yml
+# Applied to ALL Linux machines
+# Creates cyberrange admin + local users for harvesting
+
+# ── 1. Ensure cyberrange admin exists with sudo
+- name: Create cyberrange admin user
+  user:
+    name: cyberrange
+    password: "{{ 'Cyberrange123!' | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+
+- name: Allow cyberrange passwordless sudo
+  lineinfile:
+    path: /etc/sudoers.d/cyberrange
+    line: "cyberrange ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: '0440'
+    validate: 'visudo -cf %s'
+
+# ── 2. Create standard local users (harvest targets — standard privs)
+#       These exist on ALL linux machines
+
+- name: Create local user - walter.bishop
+  user:
+    name: walter.bishop
+    password: "{{ 'Fr1nge#Science1' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create local user - olivia.dunham
+  user:
+    name: olivia.dunham
+    password: "{{ 'Cortex!Agent77' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create local user - peter.bishop
+  user:
+    name: peter.bishop
+    password: "{{ 'Alt3rnat3Univ3rs3' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create local user - astrid.farnsworth
+  user:
+    name: astrid.farnsworth
+    password: "{{ 'Lab@ssist@nt2024' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+# ── 3. SSH hardening (weak on purpose for competition — allows password auth)
+- name: Enable SSH password authentication (intentionally weak for competition)
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication yes"
+  notify: Restart sshd
+
+- name: Enable root login for red team scoring
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin yes"
+  notify: Restart sshd
+
+# ── 4. Set hostname
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+# ── 5. Install common packages
+- name: Install common packages (Debian/Ubuntu)
+  apt:
+    name:
+      - curl
+      - wget
+      - net-tools
+      - vim
+      - htop
+      - sudo
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Install common packages (Rocky/RHEL)
+  dnf:
+    name:
+      - curl
+      - wget
+      - net-tools
+      - vim
+      - htop
+      - sudo
+    state: present
+  when: ansible_os_family == "RedHat"
+
+handlers:
+  - name: Restart sshd
+    service:
+      name: sshd
+      state: restarted

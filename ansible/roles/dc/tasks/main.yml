@@ -1,0 +1,250 @@
+---
+# roles/dc/tasks/main.yml
+# Promotes Windows Server 2022 to AD DC, creates all users
+
+# ── 1. Install AD-DS feature
+- name: Install AD Domain Services
+  win_feature:
+    name: AD-Domain-Services
+    include_management_tools: true
+    state: present
+  register: ad_feature
+
+- name: Reboot if AD-DS install requires it
+  win_reboot:
+  when: ad_feature.reboot_required
+
+# ── 2. Promote to Domain Controller
+- name: Promote server to Domain Controller
+  win_domain:
+    dns_domain_name: "{{ ad_domain }}"
+    domain_netbios_name: "{{ ad_domain_netbios }}"
+    safe_mode_password: "{{ ad_safe_mode_password }}"
+    state: domain_controller
+  register: dc_promotion
+
+- name: Reboot after DC promotion
+  win_reboot:
+    reboot_timeout: 600
+    post_reboot_delay: 60
+  when: dc_promotion.reboot_required
+
+# ── 3. Wait for AD web services to be ready
+- name: Wait for AD DS web services
+  win_service:
+    name: ADWS
+    state: started
+  retries: 10
+  delay: 15
+
+# ── 4. Create Organizational Units
+- name: Create Competition OU
+  community.windows.win_domain_ou:
+    name: "SCP Foundation"
+    path: "DC=scp,DC=local"
+    state: present
+
+- name: Create Staff OU
+  community.windows.win_domain_ou:
+    name: "Staff"
+    path: "OU=SCP Foundation,DC=scp,DC=local"
+    state: present
+
+- name: Create Admins OU
+  community.windows.win_domain_ou:
+    name: "Domain Admins"
+    path: "OU=SCP Foundation,DC=scp,DC=local"
+    state: present
+
+- name: Create Service Accounts OU
+  community.windows.win_domain_ou:
+    name: "Service Accounts"
+    path: "OU=SCP Foundation,DC=scp,DC=local"
+    state: present
+
+# ── 5. Create competition AD groups
+- name: Create Staff group
+  community.windows.win_domain_group:
+    name: "SCP-Staff"
+    scope: global
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    state: present
+
+- name: Create Domain Admins competition group
+  community.windows.win_domain_group:
+    name: "SCP-Admins"
+    scope: global
+    path: "OU=Domain Admins,OU=SCP Foundation,DC=scp,DC=local"
+    state: present
+
+# ── 6. Create known users from competition sheet
+#       Username format: first initial + last name (e.g. dlee, ecarter)
+
+- name: Create AD user - Michael Anderson (manderson)
+  community.windows.win_domain_user:
+    name: manderson
+    firstname: Michael
+    surname: Anderson
+    password: "Nuhuh!Whoisyou2"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Retired - Department of Mythology"
+
+- name: Create AD user - Emily Carter (ecarter)
+  community.windows.win_domain_user:
+    name: ecarter
+    firstname: Emily
+    surname: Carter
+    password: "bananaMan?#4"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Retired - Department of Temporal Anomalies"
+
+- name: Create AD user - David Lee (dlee)
+  community.windows.win_domain_user:
+    name: dlee
+    firstname: David
+    surname: Lee
+    password: "HushPuppy*3"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Retired - Department of Ethics"
+
+- name: Create AD user - Sarah Johnson (sjohnson) — Domain Admin
+  community.windows.win_domain_user:
+    name: sjohnson
+    firstname: Sarah
+    surname: Johnson
+    password: "UwU?OwO!67"
+    password_never_expires: true
+    state: present
+    path: "OU=Domain Admins,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Admins
+      - Domain Admins
+    description: "Retired - Domain Admins"
+
+# ── 7. Hidden users for red team to discover (extra accounts)
+#       These are NOT listed in the competition brief — red team must find them
+
+- name: Create hidden user - Robert Sinclair (rsinclair) [standard]
+  community.windows.win_domain_user:
+    name: rsinclair
+    firstname: Robert
+    surname: Sinclair
+    password: "F0undation#77"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Archivist - Records Division"
+
+- name: Create hidden user - Natasha Voss (nvoss) [standard]
+  community.windows.win_domain_user:
+    name: nvoss
+    firstname: Natasha
+    surname: Voss
+    password: "Cont@inment!9"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Field Agent - Site-19"
+
+- name: Create hidden user - James Holloway (jholloway) [standard]
+  community.windows.win_domain_user:
+    name: jholloway
+    firstname: James
+    surname: Holloway
+    password: "Keter$ecure1"
+    password_never_expires: true
+    state: present
+    path: "OU=Staff,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Staff
+    description: "Researcher - Anomalous Materials"
+
+- name: Create hidden admin - Victor Crane (vcrane) [Domain Admin]
+  community.windows.win_domain_user:
+    name: vcrane
+    firstname: Victor
+    surname: Crane
+    password: "Eur1s@Admin!"
+    password_never_expires: true
+    state: present
+    path: "OU=Domain Admins,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Admins
+      - Domain Admins
+    description: "O5 Council - Clearance 5"
+
+- name: Create hidden admin - Priya Mehta (pmehta) [Domain Admin]
+  community.windows.win_domain_user:
+    name: pmehta
+    firstname: Priya
+    surname: Mehta
+    password: "05M3hta@Adm1n"
+    password_never_expires: true
+    state: present
+    path: "OU=Domain Admins,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - SCP-Admins
+      - Domain Admins
+    description: "O5 Council - Clearance 5"
+
+# ── 8. Service account for scoring (SSH key auth — grey team)
+- name: Create scoring service account SCP073
+  community.windows.win_domain_user:
+    name: scp073
+    firstname: SCP
+    surname: "073"
+    password: "Sc0ring!073Cain"
+    password_never_expires: true
+    state: present
+    path: "OU=Service Accounts,OU=SCP Foundation,DC=scp,DC=local"
+    description: "Scoring account - non-privileged"
+
+- name: Create scoring service account SCP343
+  community.windows.win_domain_user:
+    name: scp343
+    firstname: SCP
+    surname: "343"
+    password: "Sc0ring!343God"
+    password_never_expires: true
+    state: present
+    path: "OU=Service Accounts,OU=SCP Foundation,DC=scp,DC=local"
+    groups:
+      - Domain Admins
+    description: "Scoring account - privileged"
+
+# ── 9. DNS — add A records for all hosts
+- name: Add DNS A records for all target machines
+  community.windows.win_dns_record:
+    name: "{{ item.name }}"
+    type: A
+    value: "{{ item.ip }}"
+    zone: "{{ ad_domain }}"
+    state: present
+  loop:
+    - { name: "SCP-DC-01",       ip: "10.10.10.21" }
+    - { name: "SCP-SMB-01",      ip: "10.10.10.22" }
+    - { name: "SCP-SMTP-01",     ip: "10.10.10.23" }
+    - { name: "SCP-APACHE-01",   ip: "10.10.10.101" }
+    - { name: "SCP-DATABASE-01", ip: "10.10.10.102" }
+    - { name: "SCP-OPENSSH-01",  ip: "10.10.10.103" }
+    - { name: "SCP-OPENVPN-01",  ip: "10.10.10.104" }
+    - { name: "SCP-BT-WIN-01",   ip: "10.10.10.31" }
+    - { name: "SCP-BT-WIN-02",   ip: "10.10.10.32" }
+    - { name: "SCP-BT-LIN-01",   ip: "10.10.10.41" }
+    - { name: "SCP-BT-LIN-02",   ip: "10.10.10.42" }

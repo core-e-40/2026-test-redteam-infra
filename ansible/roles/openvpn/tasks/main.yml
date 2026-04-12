@@ -1,0 +1,127 @@
+---
+# roles/openvpn/tasks/main.yml
+# SCP-OPENVPN-01 — Rocky Linux 10
+
+- name: Install EPEL repo
+  dnf:
+    name: epel-release
+    state: present
+
+- name: Install OpenVPN and easy-rsa
+  dnf:
+    name:
+      - openvpn
+      - easy-rsa
+    state: present
+
+# ── PKI setup
+- name: Create PKI directory
+  file:
+    path: /etc/openvpn/easy-rsa
+    state: directory
+    mode: '0755'
+
+- name: Initialize PKI
+  command: /usr/share/easy-rsa/3/easyrsa init-pki
+  args:
+    chdir: /etc/openvpn/easy-rsa
+    creates: /etc/openvpn/easy-rsa/pki
+
+- name: Build CA (non-interactive)
+  command: /usr/share/easy-rsa/3/easyrsa --batch build-ca nopass
+  args:
+    chdir: /etc/openvpn/easy-rsa
+    creates: /etc/openvpn/easy-rsa/pki/ca.crt
+
+- name: Generate server cert and key
+  command: /usr/share/easy-rsa/3/easyrsa --batch gen-req scp-vpn-server nopass
+  args:
+    chdir: /etc/openvpn/easy-rsa
+    creates: /etc/openvpn/easy-rsa/pki/private/scp-vpn-server.key
+
+- name: Sign server cert
+  command: /usr/share/easy-rsa/3/easyrsa --batch sign-req server scp-vpn-server
+  args:
+    chdir: /etc/openvpn/easy-rsa
+    creates: /etc/openvpn/easy-rsa/pki/issued/scp-vpn-server.crt
+
+- name: Generate DH params
+  command: /usr/share/easy-rsa/3/easyrsa gen-dh
+  args:
+    chdir: /etc/openvpn/easy-rsa
+    creates: /etc/openvpn/easy-rsa/pki/dh.pem
+
+# ── Copy certs to openvpn dir
+- name: Copy CA, cert, key, DH to /etc/openvpn/server
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+  loop:
+    - { src: "/etc/openvpn/easy-rsa/pki/ca.crt",                          dest: "/etc/openvpn/server/ca.crt" }
+    - { src: "/etc/openvpn/easy-rsa/pki/issued/scp-vpn-server.crt",       dest: "/etc/openvpn/server/server.crt" }
+    - { src: "/etc/openvpn/easy-rsa/pki/private/scp-vpn-server.key",      dest: "/etc/openvpn/server/server.key" }
+    - { src: "/etc/openvpn/easy-rsa/pki/dh.pem",                          dest: "/etc/openvpn/server/dh.pem" }
+
+# ── Server config
+- name: Deploy OpenVPN server config
+  copy:
+    dest: /etc/openvpn/server/server.conf
+    content: |
+      port 1194
+      proto udp
+      dev tun
+      ca   /etc/openvpn/server/ca.crt
+      cert /etc/openvpn/server/server.crt
+      key  /etc/openvpn/server/server.key
+      dh   /etc/openvpn/server/dh.pem
+      
+      server 10.8.0.0 255.255.255.0
+      push "route 10.10.10.0 255.255.255.0"
+      
+      keepalive 10 120
+      cipher AES-256-CBC
+      user nobody
+      group nobody
+      persist-key
+      persist-tun
+      
+      verb 3
+      log-append /var/log/openvpn/server.log
+
+- name: Create OpenVPN log dir
+  file:
+    path: /var/log/openvpn
+    state: directory
+
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Start and enable OpenVPN
+  service:
+    name: openvpn-server@server
+    state: started
+    enabled: true
+
+# ── Additional local users
+- name: Create local user - ada.wong
+  user:
+    name: ada.wong
+    password: "{{ 'Umb3lla!Sp00n' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+# ── Firewall
+- name: Open OpenVPN UDP port
+  firewalld:
+    port: 1194/udp
+    permanent: true
+    state: enabled
+    immediate: true

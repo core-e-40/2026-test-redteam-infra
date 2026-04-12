@@ -1,0 +1,127 @@
+---
+# roles/redteam/tasks/main.yml
+# SCP-RED-01 through RED-04 — Kali Linux
+# Pre-installs common red team tooling your group will need
+
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install core red team tools
+  apt:
+    name:
+      # Recon
+      - nmap
+      - masscan
+      - nikto
+      - gobuster
+      - dirb
+      - enum4linux
+      - smbclient
+      - ldap-utils
+      # Exploitation
+      - metasploit-framework
+      - sqlmap
+      - hydra
+      - medusa
+      - john
+      - hashcat
+      # AD / Windows specific
+      - impacket-scripts
+      - crackmapexec
+      - bloodhound
+      - neo4j
+      # Network
+      - netcat-openbsd
+      - socat
+      - tcpdump
+      - wireshark
+      - responder
+      # Post exploitation / pivoting
+      - proxychains4
+      - chisel
+      - evil-winrm
+      # Misc
+      - python3-pip
+      - git
+      - tmux
+      - vim
+    state: present
+  ignore_errors: true   # some packages may not be in default Kali repo
+
+- name: Install Python red team libraries
+  pip:
+    name:
+      - impacket
+      - ldap3
+      - pycryptodome
+      - requests
+      - pwntools
+    state: present
+    executable: pip3
+  ignore_errors: true
+
+# ── Set up persistent tmux sessions
+- name: Create shared tools directory
+  file:
+    path: /opt/scp-tools
+    state: directory
+    mode: '0755'
+
+# ── Deploy a hosts file for easy target reference
+- name: Deploy /etc/hosts entries for target machines
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      # SCP Foundation Target Network
+      10.10.10.21   SCP-DC-01      scp-dc-01.scp.local
+      10.10.10.22   SCP-SMB-01     scp-smb-01.scp.local
+      10.10.10.23   SCP-SMTP-01    scp-smtp-01.scp.local
+      10.10.10.31   SCP-BT-WIN-01
+      10.10.10.32   SCP-BT-WIN-02
+      10.10.10.41   SCP-BT-LIN-01
+      10.10.10.42   SCP-BT-LIN-02
+      10.10.10.101  SCP-APACHE-01
+      10.10.10.102  SCP-DATABASE-01
+      10.10.10.103  SCP-OPENSSH-01
+      10.10.10.104  SCP-OPENVPN-01
+    marker: "# {mark} ANSIBLE MANAGED — SCP TARGETS"
+
+# ── Configure proxychains to pivot through OpenVPN if needed
+- name: Configure proxychains
+  copy:
+    dest: /etc/proxychains4.conf
+    content: |
+      strict_chain
+      proxy_dns
+      [ProxyList]
+      socks5 127.0.0.1 1080
+
+# ── Clone useful repos
+- name: Clone PowerSploit
+  git:
+    repo: https://github.com/PowerShellMafia/PowerSploit.git
+    dest: /opt/scp-tools/PowerSploit
+    depth: 1
+  ignore_errors: true
+
+- name: Clone Covenant C2 (optional — comment out if not needed)
+  git:
+    repo: https://github.com/cobbr/Covenant.git
+    dest: /opt/scp-tools/Covenant
+    depth: 1
+    recursive: true
+  ignore_errors: true
+
+# ── Create per-operator dirs (one per red team member)
+- name: Create operator workspace dirs
+  file:
+    path: "/opt/scp-tools/operator-{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - op1
+    - op2
+    - op3
+    - op4

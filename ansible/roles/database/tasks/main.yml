@@ -1,0 +1,104 @@
+---
+# roles/database/tasks/main.yml
+# SCP-DATABASE-01 — Debian 13, MySQL server
+
+- name: Install MySQL server and client
+  apt:
+    name:
+      - mysql-server
+      - mysql-client
+      - python3-pymysql   # required for Ansible mysql modules
+    state: present
+    update_cache: true
+
+- name: Ensure MySQL is running
+  service:
+    name: mysql
+    state: started
+    enabled: true
+
+# ── Allow remote connections (Apache needs to reach in)
+- name: Configure MySQL to listen on all interfaces
+  lineinfile:
+    path: /etc/mysql/mysql.conf.d/mysqld.cnf
+    regexp: "^bind-address"
+    line: "bind-address = 0.0.0.0"
+  notify: Restart MySQL
+
+- name: Flush handlers to apply bind-address change
+  meta: flush_handlers
+
+# ── Create SCP web database
+- name: Create SCP web database
+  community.mysql.mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Create web app DB user
+  community.mysql.mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    priv: "{{ db_name }}.*:ALL"
+    host: "10.10.10.101"   # Apache server IP
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+# ── Seed users table
+- name: Create users table in SCP database
+  community.mysql.mysql_query:
+    login_db: "{{ db_name }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    query: |
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        clearance VARCHAR(20) DEFAULT '1',
+        department VARCHAR(100)
+      );
+
+- name: Seed SCP web users
+  community.mysql.mysql_query:
+    login_db: "{{ db_name }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    query: |
+      INSERT IGNORE INTO users (username, password, clearance, department) VALUES
+      ('manderson',  'Nuhuh!Whoisyou2',   '1', 'Mythology'),
+      ('ecarter',    'bananaMan?#4',       '2', 'Temporal Anomalies'),
+      ('dlee',       'HushPuppy*3',        '2', 'Ethics'),
+      ('sjohnson',   'UwU?OwO!67',         '5', 'Domain Administration'),
+      ('rsinclair',  'F0undation#77',      '2', 'Records Division'),
+      ('nvoss',      'Cont@inment!9',      '3', 'Field Operations'),
+      ('jholloway',  'Keter$ecure1',       '3', 'Anomalous Materials'),
+      ('vcrane',     'Eur1s@Admin!',       '5', 'O5 Council'),
+      ('pmehta',     '05M3hta@Adm1n',     '5', 'O5 Council'),
+      ('webadmin',   'SCPWeb@dmin1!',      '4', 'IT Infrastructure');
+
+# ── Hidden local admin on database server (target subnet)
+- name: Create hidden local admin on DB server
+  user:
+    name: dbroot
+    password: "{{ 'MySQLr00t!DB' | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+  no_log: true
+
+# ── Firewall — open MySQL only to Apache
+- name: Allow MySQL from Apache server
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 3306
+    source: "10.10.10.101"
+    jump: ACCEPT
+    state: present
+
+handlers:
+  - name: Restart MySQL
+    service:
+      name: mysql
+      state: restarted

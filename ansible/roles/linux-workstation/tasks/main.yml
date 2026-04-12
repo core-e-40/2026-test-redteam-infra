@@ -1,0 +1,72 @@
+---
+# roles/linux-workstation/tasks/main.yml
+# Blue team Linux workstations — no services, domain NOT joined
+# Extra local admin accounts planted for harvesting
+
+- name: Install basic workstation packages
+  apt:
+    name:
+      - curl
+      - wget
+      - net-tools
+      - vim
+      - htop
+      - sudo
+      - ufw
+    state: present
+    update_cache: true
+
+# ── Extra hidden admin accounts on blue team Linux workstations
+- name: Create hidden local admin - marcus.hollins
+  user:
+    name: marcus.hollins
+    password: "{{ 'BlueTe@m!2024' | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create hidden local admin - rina.okafor
+  user:
+    name: rina.okafor
+    password: "{{ 'R1n@0kafor$99' | password_hash('sha512') }}"
+    shell: /bin/bash
+    groups: sudo
+    append: true
+    state: present
+    create_home: true
+  no_log: true
+
+# ── Standard local users to harvest
+- name: Create standard user - jake.torres
+  user:
+    name: jake.torres
+    password: "{{ 'C0mpeti!tion1' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create standard user - mia.chen
+  user:
+    name: mia.chen
+    password: "{{ 'N3twork$Blue!' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+# ── UFW — allow SSH, block everything else inbound
+- name: Enable UFW and allow SSH
+  ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Enable UFW default deny
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming

@@ -1,0 +1,111 @@
+---
+# roles/openssh/tasks/main.yml
+# SCP-OPENSSH-01 — Rocky Linux 10
+# Competition scoring via SCP073 (non-priv) and SCP343 (priv)
+# Grey team authenticates via SSH key
+
+- name: Install OpenSSH server
+  dnf:
+    name: openssh-server
+    state: present
+
+- name: Ensure sshd is running and enabled
+  service:
+    name: sshd
+    state: started
+    enabled: true
+
+# ── Scoring accounts
+- name: Create SCP073 - non-privileged scoring account
+  user:
+    name: scp073
+    comment: "SCP-073 Cain - Scoring Account"
+    shell: /bin/bash
+    state: present
+    create_home: true
+
+- name: Create SCP343 - privileged scoring account
+  user:
+    name: scp343
+    comment: "SCP-343 God - Scoring Account"
+    shell: /bin/bash
+    groups: wheel
+    append: true
+    state: present
+    create_home: true
+
+# ── Grey team SSH key for scoring
+- name: Create .ssh dir for SCP073
+  file:
+    path: /home/scp073/.ssh
+    state: directory
+    owner: scp073
+    group: scp073
+    mode: '0700'
+
+- name: Create .ssh dir for SCP343
+  file:
+    path: /home/scp343/.ssh
+    state: directory
+    owner: scp343
+    group: scp343
+    mode: '0700'
+
+- name: Deploy grey team authorized key to SCP073
+  authorized_key:
+    user: scp073
+    key: "{{ lookup('file', '~/.ssh/greyteam_scoring.pub') }}"
+    state: present
+  ignore_errors: true   # remove ignore once you have the grey team pubkey file
+
+- name: Deploy grey team authorized key to SCP343
+  authorized_key:
+    user: scp343
+    key: "{{ lookup('file', '~/.ssh/greyteam_scoring.pub') }}"
+    state: present
+  ignore_errors: true
+
+# ── SSH config hardening tweaks (intentionally still weak for competition)
+- name: Configure sshd
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      PasswordAuthentication yes
+      PermitRootLogin yes
+      MaxAuthTries 6
+      PubkeyAuthentication yes
+      AuthorizedKeysFile .ssh/authorized_keys
+  notify: Restart sshd
+
+# ── Additional local users for harvesting
+- name: Create local user - leon.kennedy
+  user:
+    name: leon.kennedy
+    password: "{{ 'Raccoon!City97' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+- name: Create local user - claire.redfield
+  user:
+    name: claire.redfield
+    password: "{{ 'Ch1rs@RE2!!' | password_hash('sha512') }}"
+    shell: /bin/bash
+    state: present
+    create_home: true
+  no_log: true
+
+# ── Firewall
+- name: Open SSH port in firewalld
+  firewalld:
+    service: ssh
+    permanent: true
+    state: enabled
+    immediate: true
+
+handlers:
+  - name: Restart sshd
+    service:
+      name: sshd
+      state: restarted
