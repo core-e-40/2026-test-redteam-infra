@@ -20,7 +20,7 @@
     dns_domain_name: "{{ ad_domain }}"
     domain_netbios_name: "{{ ad_domain_netbios }}"
     safe_mode_password: "{{ ad_safe_mode_password }}"
-    state: domain_controller
+  
   register: dc_promotion
 
 - name: Reboot after DC promotion
