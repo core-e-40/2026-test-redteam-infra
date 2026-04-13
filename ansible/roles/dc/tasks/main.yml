@@ -134,7 +134,7 @@
     groups:
       add:
         - SCP-Admins
-      - Domain Admins
+        - Domain Admins
     description: "Retired - Domain Admins"
 
 # ── 7. Hidden users for red team to discover (extra accounts)
@@ -194,7 +194,7 @@
     groups:
       add:
         - SCP-Admins
-      - Domain Admins
+        - Domain Admins
     description: "O5 Council - Clearance 5"
 
 - name: Create hidden admin - Priya Mehta (pmehta) [Domain Admin]
@@ -209,7 +209,7 @@
     groups:
       add:
         - SCP-Admins
-      - Domain Admins
+        - Domain Admins
     description: "O5 Council - Clearance 5"
 
 # ── 8. Service account for scoring (SSH key auth — grey team)
@@ -235,7 +235,7 @@
     path: "OU=Service Accounts,OU=SCP Foundation,DC=scp,DC=local"
     groups:
       add:
-        - Domain Admins
+          - Domain Admins
     description: "Scoring account - privileged"
 
 # ── 9. DNS — add A records for all hosts
